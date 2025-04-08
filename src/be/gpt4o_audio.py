@@ -157,6 +157,11 @@ class GPT4oAudioClient:
 
         return response.choices[0].message.audio
 
+    def chat_and_speak(self, user_text: str) -> tuple[str, str]:
+        response = self.chat_completion_text_input(user_text)
+        transcript = response.transcript if hasattr(response, "transcript") else ""
+        audio_data = response.data if hasattr(response, "data") else ""
+        return transcript, audio_data
 
 def test_text_input():
     # Define the user text query.
