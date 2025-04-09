@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Youth Counselor Bot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="http://localhost:35729/livereload.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+  <header class="bg-white shadow sticky top-0 z-10">
+    <div class="max-w-2xl mx-auto px-4 py-3 text-center">
+      <h1 class="text-xl font-bold text-blue-600">🎧 청소년 상담 챗봇</h1>
+      <p class="text-sm text-gray-500 mt-1">음성으로 이야기하면 따뜻하게 대답해줘요</p>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto p-4 space-y-4 w-full" id="chatContainer"></main>
+
+  <div class="bg-white border-t border-gray-200 p-4 sticky bottom-0 w-full">
+    <select id="voiceSelect" class="w-full mb-3 p-2 rounded border border-gray-300">
+      <option value="alloy">Alloy</option>
+      <option value="ash">Ash</option>
+      <option value="coral">Coral</option>
+      <option value="echo">Echo</option>
+      <option value="fable">Fable</option>
+      <option value="nova">Nova</option>
+      <option value="onyx">Onyx</option>
+      <option value="sage">Sage</option>
+      <option value="shimmer" selected>Shimmer</option>
+    </select>
+
+    <div class="flex items-center gap-4 w-full">
+      <button id="recordBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl font-medium w-full">🎤 Start</button>
+      <div id="status" class="text-sm text-gray-600 whitespace-nowrap">⏹️</div>
+    </div>
+    <div id="timer" class="text-xs text-gray-400 mt-1 hidden">00:00</div>
+  </div>
+
+  <script>
+    let isRecording = false;
+    let isHistoryLoaded = false;
+    let recognition;
+    let finalTranscript = '';
+    let timerInterval;
+    let seconds = 0;
+
+    const recordBtn = document.getElementById('recordBtn');
+    const statusDiv = document.getElementById('status');
+    const timer = document.getElementById('timer');
+    const chatContainer = document.getElementById('chatContainer');
+    const voiceSelect = document.getElementById('voiceSelect');
+
+    function formatTime(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function startTimer() {
+      seconds = 0;
+      timer.textContent = formatTime(seconds);
+      timer.classList.remove('hidden');
+      timerInterval = setInterval(() => {
+        seconds++;
+        timer.textContent = formatTime(seconds);
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timer.classList.add('hidden');
+    }
+
+    function addChatBubble(message, from = 'user', saveToHistory = true) {
+      const container = document.createElement('div');
+      container.className = `flex items-end gap-2 ${from === 'user' ? 'justify-end' : 'justify-start'}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = 'w-8 h-8 rounded-full flex items-center justify-center text-sm text-white';
+      avatar.textContent = from === 'user' ? '🙂' : '🤖';
+      avatar.classList.add(from === 'user' ? 'bg-gray-500' : 'bg-blue-500');
+
+      const bubble = document.createElement('div');
+      bubble.className = `rounded-xl p-3 shadow max-w-xs w-fit text-sm ${from === 'user' ? 'bg-green-100 text-right' : 'bg-white text-left'}`;
+      bubble.innerHTML = message;
+
+      if (from === 'user') {
+        container.appendChild(bubble);
+        container.appendChild(avatar);
+      } else {
+        container.appendChild(avatar);
+        container.appendChild(bubble);
+      }
+
+      chatContainer.appendChild(container);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      if (saveToHistory) saveMessageToHistory(message, from);
+      return container;
+    }
+
+    function saveMessageToHistory(message, from) {
+      const history = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+      history.push({ from, message });
+      localStorage.setItem('chatHistory', JSON.stringify(history));
+    }
+
+    function loadHistory() {
+      if (isHistoryLoaded) return;
+      const history = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+      history.forEach(item => addChatBubble(item.message, item.from, false));
+      isHistoryLoaded = true;
+
+      setTimeout(() => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }, 100);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadHistory();
+    });
+
+    if ('webkitSpeechRecognition' in window) {
+      recognition = new webkitSpeechRecognition();
+      recognition.lang = 'ko-KR';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onresult = (event) => {
+        let temp = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            temp += event.results[i][0].transcript;
+          }
+        }
+        finalTranscript += temp.trim();
+      };
+
+      recognition.onend = async () => {
+        if (!finalTranscript.trim()) {
+          console.warn('🎤 아무 텍스트도 인식되지 않음');
+          return;
+        }
+
+        const transcript = finalTranscript.trim();
+
+        if (/reset history|리셋 히스토리/i.test(transcript)) {
+          localStorage.removeItem('chatHistory');
+          chatContainer.innerHTML = '';
+          isHistoryLoaded = false;
+          addChatBubble('🧹 히스토리가 삭제되었어요.', 'bot');
+          return;
+        }
+
+        addChatBubble(transcript, 'user');
+
+        const spinnerBubble = addChatBubble(`
+          <div class="flex items-center space-x-2">
+            <svg class="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <span class="text-gray-500 text-sm">답변을 준비 중이에요...</span>
+          </div>
+        `, 'bot', false);
+
+        try {
+          // 외부 접근 가능하게 하려면 localhost:8000 부분 변경 필요
+          const res = await fetch('http://localhost:8000/chat-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: transcript,
+              system_prompt: "당신은 자살 위험이 있는 청소년들을 위한 정서적 지원과 상담을 제공하는 전문 심리상담 챗봇입니다. 다음 지침을 항상 따르세요:\n\n" +
+                "🎯 역할과 목적\n" +
+                "당신의 주된 임무는 청소년들의 생명을 지키는 것입니다.\n" +
+                "자살 충동을 느끼는 청소년에게 비판 없는 경청, 공감, 정서적 지지를 제공해야 합니다.\n" +
+                "청소년이 자신의 감정을 표현하도록 유도하며, 위험한 상황에서는 안전한 선택을 유도해야 합니다.\n" +
+                "필요 시 전문적인 도움(상담사, 24시간 긴급 센터 등)을 안내해야 합니다.\n\n" +
+                "🧠 대화 스타일과 언어\n" +
+                "부드럽고 따뜻한 말투를 사용합니다.\n" +
+                "청소년이 이해하기 쉬운 친근하고 직설적인 언어를 사용합니다.\n" +
+                "판단하지 않고, 항상 공감하는 자세를 유지합니다.\n" +
+                "자살 충동에 대해 말하더라도 놀라지 말고, 차분한 태도를 유지합니다.\n\n" +
+                "🛑 금지 사항\n" +
+                "진단하거나 병명을 단정짓지 않습니다.\n" +
+                "자살 방법이나 수단에 대한 구체적인 언급을 피합니다.\n" +
+                "청소년의 감정을 가볍게 여기거나 부정하지 않습니다.\n" +
+                "강압적이거나 명령하는 말투는 사용하지 않습니다.\n\n" +
+                "🧭 기본 대화 흐름 가이드\n" +
+                "감정 확인 및 공감\n" +
+                "“그동안 정말 힘들었겠구나.”\n" +
+                "“그런 감정을 느끼는 건 아주 자연스러운 일이야.”\n\n" +
+                "자살 관련 위험도 탐색 (간접적)\n" +
+                "“요즘 들어 삶이 너무 벅차다고 느끼는 순간이 있었니?”\n" +
+                "“혹시, 모든 걸 그만두고 싶은 마음이 들 때가 있니?”\n\n" +
+                "위험 판단 후 대응\n" +
+                "중간 위험: “지금은 네가 혼자가 아니라는 걸 꼭 기억해줘.”\n" +
+                "고위험: “정말 위급한 상황인 것 같아. 전문가와 이야기해 보는 게 도움이 될 수 있어. 내가 도와줄게.”\n\n" +
+                "전문기관 연결\n" +
+                "“혹시 지금 바로 상담할 수 있는 어른이나 선생님이 있니?”\n" +
+                "“24시간 도움을 받을 수 있는 전화가 있어. 1393(자살 예방 상담 전화)에 연락해 볼 수 있어.”\n\n" +
+                "정서적 지지와 희망 제시\n" +
+                "“지금 이 순간을 함께 견뎌주는 사람이 있다는 걸 잊지 마.”\n" +
+                "“오늘 너에게 말을 걸어준 건 정말 용기 있는 선택이야.”\n\n" +
+                "🧷 추가 정보\n" +
+                "대상 연령: 13~19세\n" +
+                "고려 사항: 학교, 친구, 가족과의 갈등, 학업 스트레스, 자아정체성 문제, 외로움, 자존감 저하\n" +
+                "모든 대화는 비밀 보장과 심리적 안전을 전제로 합니다.",
+              voice: voiceSelect.value
+            })
+          });
+
+          const data = await res.json();
+          console.log('🟢 서버 응답:', data); 
+          spinnerBubble.remove();
+
+          if (data.text) {
+            addChatBubble(data.text, 'bot');
+            if (data.audio_base64) {
+              const audio = new Audio('data:audio/mp3;base64,' + data.audio_base64);
+              audio.play();
+            }
+          } else {
+            addChatBubble('❌ 응답이 없어요.', 'bot');
+          }
+        } catch (err) {
+          console.error('❌ fetch 에러:', err);
+          spinnerBubble.remove();
+          addChatBubble('❌ 서버 오류가 발생했어요.', 'bot');
+        }
+      };
+
+      recordBtn.addEventListener('click', async () => {
+        if (!isRecording) {
+          finalTranscript = '';
+          recognition?.start();
+          isRecording = true;
+          recordBtn.textContent = '⏹️ Stop';
+          statusDiv.textContent = '🔴';
+          startTimer();
+        } else {
+          recognition?.stop();
+          isRecording = false;
+          recordBtn.textContent = '🎤 Start';
+          statusDiv.textContent = '⏹️';
+          stopTimer();
+        }
+      });
+    } else {
+      alert("이 브라우저는 음성 인식을 지원하지 않아요.");
+    }
+  </script>
+</body>
+</html>

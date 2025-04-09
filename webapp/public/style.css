@@ -1,0 +1,84 @@
+/* 기본 폰트, 배경 */
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #c3ecb2 0%, #7dd9b5 100%);
+    min-height: 100vh;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  
+  /* 카드 스타일 */
+  .container {
+    background-color: white;
+    padding: 32px;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+  }
+  
+  /* 제목 */
+  h1 {
+    margin-bottom: 10px;
+    font-size: 1.8rem;
+  }
+  
+  /* 버튼 */
+  #recordBtn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 14px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    width: 100%;
+    max-width: 250px;
+    margin-top: 16px;
+  }
+  
+  #recordBtn:hover {
+    background-color: #45a049;
+  }
+  
+  /* 상태 텍스트 */
+  #status {
+    margin-top: 20px;
+    font-weight: bold;
+    font-size: 1.1rem;
+  }
+  
+  /* 오디오 플레이어 (녹음 결과) */
+  audio {
+    margin-top: 20px;
+    width: 100%;
+  }
+  
+  /* 반응형: 더 작은 디바이스 */
+  @media (max-width: 480px) {
+    .container {
+      padding: 24px;
+      border-radius: 14px;
+    }
+  
+    h1 {
+      font-size: 1.5rem;
+    }
+  
+    #recordBtn {
+      padding: 12px 20px;
+      font-size: 0.95rem;
+    }
+  
+    #status {
+      font-size: 1rem;
+    }
+  }
+  
