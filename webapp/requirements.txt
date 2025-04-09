@@ -1,0 +1,7 @@
+setuptools
+streamlit
+streamlit-audiorecorder
+requests
+python-dotenv
+Flask
+openai
